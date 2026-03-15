@@ -29,6 +29,7 @@ This repository contains three polished CLI applications:
 1. `math_theory_lab.jl` for advanced math theories and heavy computations
 2. `probability_studio.jl` for practical probability calculations
 3. `trigonometry_studio.jl` for trigonometric workflows and Law of Cosines
+4. `math_visual_studio.jl` for window-based dynamic graph visualization
 
 Each app includes:
 
@@ -57,6 +58,7 @@ From this project directory:
 julia math_theory_lab.jl
 julia probability_studio.jl
 julia trigonometry_studio.jl
+julia math_visual_studio.jl
 ```
 
 ## Applications
@@ -66,6 +68,7 @@ julia trigonometry_studio.jl
 | `math_theory_lab.jl` | Advanced, hard-to-do-in-head calculations | Number theory, combinatorics, finance, chaos, approximations |
 | `probability_studio.jl` | Event-likelihood and decision calculations | Binomial, Poisson, Bayes, geometric |
 | `trigonometry_studio.jl` | Angle/triangle and trig equation tools | sin/cos/tan/cot, inverse trig, cosine law |
+| `math_visual_studio.jl` | Interactive desktop plotting | Dynamic logarithm and trigonometric equation graphs |
 
 ## Batch Mode
 
@@ -166,6 +169,23 @@ File: `trigonometry_studio.jl`
 - Explanatory prompts and examples
 - Geometry/trig validity checks
 - Clean, readable result presentation
+
+## Math Visual Studio
+
+File: `math_visual_studio.jl`
+
+### What It Does
+
+- Opens a desktop window using `GLMakie`
+- Plots a dynamic logarithm function
+- Plots a dynamic trigonometric function
+- Uses live sliders for equation parameters
+- Updates graphs in real time while you drag
+
+### Dynamic Equations
+
+- Log model: $y = a\log(bx + \text{shift}) + c$
+- Trig model: $y = A\sin(Bx + C) + D$
 
 ## Performance Design
 
