@@ -1,0 +1,15 @@
+# Generated result exports
+exports/
+
+# Local logs and temp files
+*.log
+*.tmp
+*.temp
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor/workspace artifacts
+.vscode/
+.idea/
