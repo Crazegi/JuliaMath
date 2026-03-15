@@ -21,7 +21,7 @@ GLMakie.activate!()
 function slider_with_label(parent, row::Int, title::String, range; startvalue)
     Label(parent[row, 1], title, tellwidth=false)
     s = Slider(parent[row, 2], range=range, startvalue=startvalue)
-    v = Label(parent[row, 3], @lift(string(round($s.value, sigdigits=6))), tellwidth=false)
+    v = Label(parent[row, 3], @lift(string(round($(s.value), sigdigits=6))), tellwidth=false)
     return s, v
 end
 
@@ -62,15 +62,15 @@ function main()
     log_shift, _ = slider_with_label(controls_log, 3, "shift (domain offset)", 0.001:0.01:10.0; startvalue=1.0)
     log_c, _ = slider_with_label(controls_log, 4, "c (vertical shift)", -10.0:0.01:10.0; startvalue=0.0)
 
-    ys_log = @lift($log_a.value .* log.($log_b.value .* xs .+ $log_shift.value) .+ $log_c.value)
+    ys_log = @lift($(log_a.value) .* log.($(log_b.value) .* xs .+ $(log_shift.value)) .+ $(log_c.value))
     lines!(ax_log, xs, ys_log, color=:tomato, linewidth=3)
 
     log_eq_label = Label(
         controls_log[5, 1:3],
-        @lift("y = " * string(round($log_a.value, sigdigits=5)) *
-              " * log(" * string(round($log_b.value, sigdigits=5)) * "*x + " *
-              string(round($log_shift.value, sigdigits=5)) * ") + " *
-              string(round($log_c.value, sigdigits=5))),
+          @lift("y = " * string(round($(log_a.value), sigdigits=5)) *
+              " * log(" * string(round($(log_b.value), sigdigits=5)) * "*x + " *
+              string(round($(log_shift.value), sigdigits=5)) * ") + " *
+              string(round($(log_c.value), sigdigits=5))),
         tellwidth=false
     )
 
@@ -80,15 +80,15 @@ function main()
     trig_C, _ = slider_with_label(controls_trig, 3, "C (phase, rad)", -2pi:0.01:2pi; startvalue=0.0)
     trig_D, _ = slider_with_label(controls_trig, 4, "D (vertical shift)", -5.0:0.01:5.0; startvalue=0.0)
 
-    ys_trig = @lift($trig_A.value .* sin.($trig_B.value .* xs .+ $trig_C.value) .+ $trig_D.value)
+    ys_trig = @lift($(trig_A.value) .* sin.($(trig_B.value) .* xs .+ $(trig_C.value)) .+ $(trig_D.value))
     lines!(ax_trig, xs, ys_trig, color=:deepskyblue3, linewidth=3)
 
     trig_eq_label = Label(
         controls_trig[5, 1:3],
-        @lift("y = " * string(round($trig_A.value, sigdigits=5)) *
-              " * sin(" * string(round($trig_B.value, sigdigits=5)) * "*x + " *
-              string(round($trig_C.value, sigdigits=5)) * ") + " *
-              string(round($trig_D.value, sigdigits=5))),
+          @lift("y = " * string(round($(trig_A.value), sigdigits=5)) *
+              " * sin(" * string(round($(trig_B.value), sigdigits=5)) * "*x + " *
+              string(round($(trig_C.value), sigdigits=5)) * ") + " *
+              string(round($(trig_D.value), sigdigits=5))),
         tellwidth=false
     )
 
@@ -101,4 +101,6 @@ function main()
     wait(screen)
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end
