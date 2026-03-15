@@ -1,0 +1,8 @@
+# mode|key=value;key=value
+basic|theta=35;unit=deg
+inverse|v=0.5;t=1.2;unit=deg
+law_side|a=7;b=9;gamma=42;unit=deg
+law_angle|a=7;b=9;c=6;unit=deg
+triangle|a=12;b=15;gamma=33;unit=deg
+wave|A=2.5;B=1.8;C=30;D=-0.7;x=1.2;unit=deg
+identity|theta=12345.678;unit=deg

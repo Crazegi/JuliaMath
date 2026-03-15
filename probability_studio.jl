@@ -2,6 +2,8 @@
 
 # Probability Studio - polished CLI for practical probability calculations.
 
+using Dates
+
 function line(ch::String="=", n::Int=88)
     println(repeat(ch, n))
 end
@@ -76,6 +78,47 @@ function format_duration(elapsed_ms::Float64)
     end
 end
 
+function sanitize_filename(s::String)
+    return replace(lowercase(strip(s)), r"[^a-z0-9]+" => "_")
+end
+
+function timestamp_tag()
+    return replace(replace(string(Dates.now()), ":" => "-"), "." => "-")
+end
+
+function csv_escape(value::String)
+    return "\"" * replace(value, "\"" => "\"\"") * "\""
+end
+
+function export_rows(app_name::String, title::String, rows::Vector{Pair{String, String}}, elapsed_ms::Float64)
+    base_dir = joinpath(@__DIR__, "exports", app_name)
+    mkpath(base_dir)
+
+    stem = sanitize_filename(title) * "_" * timestamp_tag()
+    txt_path = joinpath(base_dir, stem * ".txt")
+    csv_path = joinpath(base_dir, stem * ".csv")
+
+    open(txt_path, "w") do io
+        println(io, "RESULT | " * title)
+        println(io, repeat("-", 70))
+        for row in rows
+            println(io, row.first * "=" * row.second)
+        end
+        println(io, "compute_time=" * format_duration(elapsed_ms))
+    end
+
+    open(csv_path, "w") do io
+        println(io, "key,value")
+        for row in rows
+            println(io, csv_escape(row.first) * "," * csv_escape(row.second))
+        end
+        println(io, csv_escape("compute_time") * "," * csv_escape(format_duration(elapsed_ms)))
+    end
+
+    println("Exported: " * txt_path)
+    println("Exported: " * csv_path)
+end
+
 function print_result(title::String, rows::Vector{Pair{String, String}}, elapsed_ms::Float64)
     line("-")
     println("RESULT | " * title)
@@ -87,6 +130,129 @@ function print_result(title::String, rows::Vector{Pair{String, String}}, elapsed
     line("-")
     println(rpad("compute_time", 30) * " : " * format_duration(elapsed_ms))
     line("=")
+    export_rows("probability_studio", title, rows, elapsed_ms)
+end
+
+function parse_kv_blob(blob::AbstractString)
+    parsed = Dict{String, String}()
+    parts = split(blob, ';')
+    for part in parts
+        t = strip(part)
+        isempty(t) && continue
+        kv = split(t, '='; limit=2)
+        length(kv) == 2 || error("Invalid key=value segment: " * t)
+        parsed[strip(kv[1])] = strip(kv[2])
+    end
+    return parsed
+end
+
+function run_batch_mode()
+    println("\nBatch mode format per line:")
+    println("model|key=value;key=value")
+    println("Examples:")
+    println("at_least_one|p=0.2;n=20")
+    println("binomial|n=50;k=12;p=0.3")
+    println("poisson|lambda=4.2;k=7")
+    println("bayes|p_b_given_a=0.95;p_a=0.01;p_b=0.05")
+    println("geometric|p=0.25;k=6")
+
+    path = prompt_line("Batch file path: ")
+    isfile(path) || error("File not found: " * path)
+
+    lines = readlines(path)
+    ok_count = 0
+    for (idx, line) in enumerate(lines)
+        raw = strip(line)
+        if isempty(raw) || startswith(raw, "#")
+            continue
+        end
+
+        println("\n[Batch line $(idx)] " * raw)
+        try
+            chunks = split(raw, '|'; limit=2)
+            length(chunks) == 2 || error("Expected model|key=value;...")
+            model = lowercase(strip(chunks[1]))
+            kv = parse_kv_blob(chunks[2])
+
+            started = time_ns()
+            title = ""
+            rows = Pair{String, String}[]
+
+            if model == "at_least_one"
+                p = parse(Float64, kv["p"])
+                n = parse(Int, kv["n"])
+                result = 1.0 - (1.0 - p)^n
+                title = "At least one success"
+                rows = Pair{String, String}[
+                    "equation" => "1 - (1-p)^n",
+                    "p" => string(p),
+                    "n" => string(n),
+                    "probability" => string(round(result, sigdigits=16)),
+                    "probability_percent" => percent(result)
+                ]
+            elseif model == "binomial"
+                n = parse(Int, kv["n"])
+                k = parse(Int, kv["k"])
+                p = parse(Float64, kv["p"])
+                exact = binomial_pmf(n, k, p)
+                cumulative = sum(binomial_pmf(n, i, p) for i in 0:k)
+                title = "Binomial"
+                rows = Pair{String, String}[
+                    "equation" => "Binomial PMF/CDF",
+                    "n" => string(n),
+                    "k" => string(k),
+                    "p" => string(p),
+                    "P(X = k)" => string(round(exact, sigdigits=16)),
+                    "P(X <= k)" => string(round(cumulative, sigdigits=16))
+                ]
+            elseif model == "poisson"
+                lambda = parse(Float64, kv["lambda"])
+                k = parse(Int, kv["k"])
+                p = poisson_pmf(lambda, k)
+                title = "Poisson"
+                rows = Pair{String, String}[
+                    "equation" => "Poisson PMF",
+                    "lambda" => string(lambda),
+                    "k" => string(k),
+                    "P(X = k)" => string(round(p, sigdigits=16))
+                ]
+            elseif model == "bayes"
+                p_b_given_a = parse(Float64, kv["p_b_given_a"])
+                p_a = parse(Float64, kv["p_a"])
+                p_b = parse(Float64, kv["p_b"])
+                posterior = (p_b_given_a * p_a) / p_b
+                title = "Bayes"
+                rows = Pair{String, String}[
+                    "equation" => "P(A|B) = P(B|A)P(A)/P(B)",
+                    "P(B|A)" => string(p_b_given_a),
+                    "P(A)" => string(p_a),
+                    "P(B)" => string(p_b),
+                    "P(A|B)" => string(round(posterior, sigdigits=16))
+                ]
+            elseif model == "geometric"
+                p = parse(Float64, kv["p"])
+                k = parse(Int, kv["k"])
+                prob = (1.0 - p)^(k - 1) * p
+                title = "Geometric"
+                rows = Pair{String, String}[
+                    "equation" => "(1-p)^(k-1) * p",
+                    "p" => string(p),
+                    "k" => string(k),
+                    "probability" => string(round(prob, sigdigits=16))
+                ]
+            else
+                error("Unknown model: " * model)
+            end
+
+            elapsed_ms = (time_ns() - started) / 1_000_000
+            print_result(title, rows, elapsed_ms)
+            ok_count += 1
+        catch err
+            println("Batch error on line $(idx): " * string(err))
+        end
+    end
+
+    println("\nBatch complete. Successful rows: $(ok_count)")
 end
 
 function log_factorial(n::Int)
@@ -134,7 +300,9 @@ function menu()
     println("   -> Example: probability of disease given a positive test")
     println("5. Geometric: first success on trial k")
     println("   -> Example: first sale happens on the 6th customer")
-    println("6. Exit")
+    println("6. Batch mode from file")
+    println("   -> Execute many probability tasks from a text file")
+    println("7. Exit")
 end
 
 function print_input_guide(title::String, lines::Vector{String})
@@ -296,7 +464,7 @@ function main()
     while true
         try
             menu()
-            choice = read_int("Your choice"; format="1..6", example="2", minv=1, maxv=6)
+            choice = read_int("Your choice"; format="1..7", example="2", minv=1, maxv=7)
             if choice == 1
                 run_at_least_one()
             elseif choice == 2
@@ -307,6 +475,8 @@ function main()
                 run_bayes()
             elseif choice == 5
                 run_geometric()
+            elseif choice == 6
+                run_batch_mode()
             else
                 println("\nGoodbye from Probability Studio.")
                 return
@@ -317,4 +487,6 @@ function main()
     end
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

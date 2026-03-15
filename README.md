@@ -12,6 +12,9 @@ High-performance command-line math toolkit in Julia, focused on clear UX and ser
 - [Overview](#overview)
 - [Quick Start](#quick-start)
 - [Applications](#applications)
+- [Batch Mode](#batch-mode)
+- [Exported Results](#exported-results)
+- [Testing](#testing)
 - [Math Theory Lab](#math-theory-lab)
 - [Probability Studio](#probability-studio)
 - [Trigonometry Studio](#trigonometry-studio)
@@ -33,6 +36,7 @@ Each app includes:
 - User-friendly prompts and summaries
 - Structured result panels
 - Per-calculation compute-time reporting
+- Automatic export to `.txt` and `.csv`
 
 ## Quick Start
 
@@ -62,6 +66,36 @@ julia trigonometry_studio.jl
 | `math_theory_lab.jl` | Advanced, hard-to-do-in-head calculations | Number theory, combinatorics, finance, chaos, approximations |
 | `probability_studio.jl` | Event-likelihood and decision calculations | Binomial, Poisson, Bayes, geometric |
 | `trigonometry_studio.jl` | Angle/triangle and trig equation tools | sin/cos/tan/cot, inverse trig, cosine law |
+
+## Batch Mode
+
+All three apps support file-based batch execution from their menu.
+
+Ready examples are included in:
+
+- `batch_examples/math_batch.txt`
+- `batch_examples/probability_batch.txt`
+- `batch_examples/trigonometry_batch.txt`
+
+## Exported Results
+
+Every computed result is exported automatically to both `.txt` and `.csv`.
+
+Export location:
+
+- `exports/math_theory_lab/`
+- `exports/probability_studio/`
+- `exports/trigonometry_studio/`
+
+## Testing
+
+Run the core-formula test suite:
+
+```powershell
+julia tests/runtests.jl
+```
+
+This suite validates numerical correctness for key formulas across all three apps.
 
 ## Math Theory Lab
 

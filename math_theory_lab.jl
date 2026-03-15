@@ -3,6 +3,8 @@
 # Math Theory Lab - unusual language edition (Julia CLI)
 # Performance-focused computational toolkit for advanced mathematical models.
 
+using Dates
+
 struct TheoryEntry
     key::String
     name::String
@@ -481,6 +483,47 @@ function format_duration(elapsed_ms::Float64)
     end
 end
 
+function sanitize_filename(s::String)
+    return replace(lowercase(strip(s)), r"[^a-z0-9]+" => "_")
+end
+
+function timestamp_tag()
+    return replace(replace(string(Dates.now()), ":" => "-"), "." => "-")
+end
+
+function csv_escape(value::String)
+    return "\"" * replace(value, "\"" => "\"\"") * "\""
+end
+
+function export_rows(app_name::String, title::String, rows::Vector{Pair{String, String}}, elapsed_ms::Float64)
+    base_dir = joinpath(@__DIR__, "exports", app_name)
+    mkpath(base_dir)
+
+    stem = sanitize_filename(title) * "_" * timestamp_tag()
+    txt_path = joinpath(base_dir, stem * ".txt")
+    csv_path = joinpath(base_dir, stem * ".csv")
+
+    open(txt_path, "w") do io
+        println(io, "RESULT | " * title)
+        println(io, repeat("-", 70))
+        for row in rows
+            println(io, row.first * "=" * row.second)
+        end
+        println(io, "compute_time=" * format_duration(elapsed_ms))
+    end
+
+    open(csv_path, "w") do io
+        println(io, "key,value")
+        for row in rows
+            println(io, csv_escape(row.first) * "," * csv_escape(row.second))
+        end
+        println(io, csv_escape("compute_time") * "," * csv_escape(format_duration(elapsed_ms)))
+    end
+
+    println("Exported: " * txt_path)
+    println("Exported: " * csv_path)
+end
+
 function compact_bigint_view(x::BigInt)
     s = string(x)
     if length(s) <= 220
@@ -508,6 +551,64 @@ function print_result_panel(entry::TheoryEntry, rows::Vector{Pair{String, String
     println(repeat("-", width))
     println(rpad("compute_time", 24) * " : " * format_duration(elapsed_ms))
     println(repeat("=", width))
+    export_rows("math_theory_lab", entry.name, rows, elapsed_ms)
+end
+
+function run_batch_mode_from_file()
+    println("\nBatch mode format per line:")
+    println("theory_key")
+    println("Example:")
+    println("fibonacci")
+    println("mod_pow")
+    println("lyapunov")
+    println("Note: current batch mode uses built-in high-quality sample inputs per theory.")
+
+    path = prompt_line("Batch file path: ")
+    isfile(path) || error("File not found: " * path)
+
+    lines = readlines(path)
+    println("\n=== Batch Results (Math Theory Lab) ===")
+    println(rpad("#", 4) * rpad("Theory", 45) * rpad("Time", 14) * "Status / Sample Output")
+    println(repeat("-", 95))
+
+    ok_count = 0
+    for (idx, line) in enumerate(lines)
+        raw = strip(line)
+        if isempty(raw) || startswith(raw, "#")
+            continue
+        end
+
+        key = lowercase(raw)
+        entry = nothing
+        for t in THEORIES
+            if lowercase(t.key) == key
+                entry = t
+                break
+            end
+        end
+
+        if entry === nothing
+            println(rpad(string(idx), 4) * rpad(key, 45) * rpad("-", 14) * "ERR | Unknown theory key")
+            continue
+        end
+
+        try
+            elapsed_ms, summary = demo_compute(entry)
+            println(rpad(string(idx), 4) * rpad(entry.name, 45) * rpad(format_duration(elapsed_ms), 14) * "OK | " * summary)
+            rows = Pair{String, String}[
+                "mode" => "batch_sample",
+                "theory_key" => entry.key,
+                "summary" => summary
+            ]
+            export_rows("math_theory_lab", entry.name * " batch", rows, elapsed_ms)
+            ok_count += 1
+        catch err
+            println(rpad(string(idx), 4) * rpad(entry.name, 45) * rpad("-", 14) * "ERR | " * string(err))
+        end
+    end
+
+    println(repeat("-", 95))
+    println("Batch complete. Successful rows: $(ok_count)")
 end
 
 function run_theory(entry::TheoryEntry)
@@ -768,6 +869,8 @@ function print_menu()
     end
     println("$(length(THEORIES) + 1). Demo Mode (auto-run all sample calculations)")
     println("   -> Runs every theory once and prints a benchmark table")
+    println("$(length(THEORIES) + 2). Batch Mode from file")
+    println("   -> Execute many theory sample computations from a text file")
     println("0. Exit")
 end
 
@@ -778,14 +881,16 @@ function main()
     while true
         try
             print_menu()
-            max_choice = length(THEORIES) + 1
+            max_choice = length(THEORIES) + 2
             choice = read_int("Your choice"; format="menu number 0..$(max_choice)", example="1", minv=0, maxv=max_choice)
             if choice == 0
                 println("Bye.")
                 return
             end
-            if choice == max_choice
+            if choice == length(THEORIES) + 1
                 run_demo_mode()
+            elseif choice == length(THEORIES) + 2
+                run_batch_mode_from_file()
             else
                 run_theory(THEORIES[choice])
             end
@@ -795,4 +900,6 @@ function main()
     end
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

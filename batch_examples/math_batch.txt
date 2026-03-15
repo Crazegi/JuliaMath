@@ -1,0 +1,16 @@
+# One theory key per line; built-in sample inputs are used.
+mod_pow
+fibonacci
+binomial
+catalan
+partition
+miller_rabin
+crt
+black_scholes
+zeta
+newton_root
+lyapunov
+totient
+lucas_lehmer
+pell
+stirling

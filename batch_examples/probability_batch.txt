@@ -1,0 +1,6 @@
+# model|key=value;key=value
+at_least_one|p=0.2;n=20
+binomial|n=50;k=12;p=0.3
+poisson|lambda=4.2;k=7
+bayes|p_b_given_a=0.95;p_a=0.01;p_b=0.05
+geometric|p=0.25;k=6

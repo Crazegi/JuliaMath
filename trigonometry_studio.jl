@@ -2,6 +2,8 @@
 
 # Trigonometry Studio - detailed CLI for trigonometric and cosine-law calculations.
 
+using Dates
+
 function line(ch::String="=", n::Int=94)
     println(repeat(ch, n))
 end
@@ -72,6 +74,47 @@ function format_duration(elapsed_ms::Float64)
     end
 end
 
+function sanitize_filename(s::String)
+    return replace(lowercase(strip(s)), r"[^a-z0-9]+" => "_")
+end
+
+function timestamp_tag()
+    return replace(replace(string(Dates.now()), ":" => "-"), "." => "-")
+end
+
+function csv_escape(value::String)
+    return "\"" * replace(value, "\"" => "\"\"") * "\""
+end
+
+function export_rows(app_name::String, title::String, rows::Vector{Pair{String, String}}, elapsed_ms::Float64)
+    base_dir = joinpath(@__DIR__, "exports", app_name)
+    mkpath(base_dir)
+
+    stem = sanitize_filename(title) * "_" * timestamp_tag()
+    txt_path = joinpath(base_dir, stem * ".txt")
+    csv_path = joinpath(base_dir, stem * ".csv")
+
+    open(txt_path, "w") do io
+        println(io, "RESULT | " * title)
+        println(io, repeat("-", 70))
+        for row in rows
+            println(io, row.first * "=" * row.second)
+        end
+        println(io, "compute_time=" * format_duration(elapsed_ms))
+    end
+
+    open(csv_path, "w") do io
+        println(io, "key,value")
+        for row in rows
+            println(io, csv_escape(row.first) * "," * csv_escape(row.second))
+        end
+        println(io, csv_escape("compute_time") * "," * csv_escape(format_duration(elapsed_ms)))
+    end
+
+    println("Exported: " * txt_path)
+    println("Exported: " * csv_path)
+end
+
 function print_result(title::String, rows::Vector{Pair{String, String}}, elapsed_ms::Float64)
     line("-")
     println("RESULT | " * title)
@@ -83,6 +126,147 @@ function print_result(title::String, rows::Vector{Pair{String, String}}, elapsed
     line("-")
     println(rpad("compute_time", 34) * " : " * format_duration(elapsed_ms))
     line("=")
+    export_rows("trigonometry_studio", title, rows, elapsed_ms)
+end
+
+function parse_kv_blob(blob::AbstractString)
+    parsed = Dict{String, String}()
+    for part in split(blob, ';')
+        t = strip(part)
+        isempty(t) && continue
+        kv = split(t, '='; limit=2)
+        length(kv) == 2 || error("Invalid key=value segment: " * t)
+        parsed[strip(kv[1])] = strip(kv[2])
+    end
+    return parsed
+end
+
+function parse_unit(value::AbstractString)
+    v = lowercase(strip(value))
+    if v == "deg" || v == "degrees"
+        return :deg
+    elseif v == "rad" || v == "radians"
+        return :rad
+    end
+    error("unit must be deg or rad")
+end
+
+function run_batch_mode()
+    println("\nBatch mode format per line:")
+    println("mode|key=value;key=value")
+    println("Examples:")
+    println("basic|theta=35;unit=deg")
+    println("inverse|v=0.5;t=1.2;unit=deg")
+    println("law_side|a=7;b=9;gamma=42;unit=deg")
+    println("law_angle|a=7;b=9;c=6;unit=deg")
+    println("triangle|a=12;b=15;gamma=33;unit=deg")
+    println("wave|A=2.5;B=1.8;C=30;D=-0.7;x=1.2;unit=deg")
+    println("identity|theta=12345.678;unit=deg")
+
+    path = prompt_line("Batch file path: ")
+    isfile(path) || error("File not found: " * path)
+
+    lines = readlines(path)
+    ok_count = 0
+    for (idx, line) in enumerate(lines)
+        raw = strip(line)
+        if isempty(raw) || startswith(raw, "#")
+            continue
+        end
+
+        println("\n[Batch line $(idx)] " * raw)
+        try
+            chunks = split(raw, '|'; limit=2)
+            length(chunks) == 2 || error("Expected mode|key=value;...")
+            mode = lowercase(strip(chunks[1]))
+            kv = parse_kv_blob(chunks[2])
+
+            title = ""
+            rows = Pair{String, String}[]
+            started = time_ns()
+
+            if mode == "basic"
+                unit = parse_unit(kv["unit"])
+                theta = to_radians(parse(Float64, kv["theta"]), unit)
+                s = sin(theta)
+                c = cos(theta)
+                t = abs(c) < 1e-14 ? nothing : tan(theta)
+                ct = abs(s) < 1e-14 ? nothing : safe_cot(theta)
+                title = "Basic Trigonometry"
+                rows = Pair{String, String}[
+                    "sin(theta)" => string(round(s, sigdigits=16)),
+                    "cos(theta)" => string(round(c, sigdigits=16)),
+                    "tan(theta)" => t === nothing ? "undefined (cos ~ 0)" : string(round(t, sigdigits=16)),
+                    "cot(theta)" => ct === nothing ? "undefined (sin ~ 0)" : string(round(ct, sigdigits=16))
+                ]
+            elseif mode == "inverse"
+                unit = parse_unit(kv["unit"])
+                v = parse(Float64, kv["v"])
+                t = parse(Float64, kv["t"])
+                title = "Inverse Trigonometry"
+                rows = Pair{String, String}[
+                    "asin(v)" => string(round(to_unit(asin(v), unit), sigdigits=16)),
+                    "acos(v)" => string(round(to_unit(acos(v), unit), sigdigits=16)),
+                    "atan(t)" => string(round(to_unit(atan(t), unit), sigdigits=16))
+                ]
+            elseif mode == "law_side"
+                a = parse(Float64, kv["a"])
+                b = parse(Float64, kv["b"])
+                unit = parse_unit(kv["unit"])
+                gamma = to_radians(parse(Float64, kv["gamma"]), unit)
+                c = sqrt(a * a + b * b - 2.0 * a * b * cos(gamma))
+                title = "Law of Cosines (side)"
+                rows = Pair{String, String}["c" => string(round(c, sigdigits=16))]
+            elseif mode == "law_angle"
+                a = parse(Float64, kv["a"])
+                b = parse(Float64, kv["b"])
+                c = parse(Float64, kv["c"])
+                unit = parse_unit(kv["unit"])
+                cos_gamma = (a * a + b * b - c * c) / (2.0 * a * b)
+                gamma = to_unit(acos(max(-1.0, min(1.0, cos_gamma))), unit)
+                title = "Law of Cosines (angle)"
+                rows = Pair{String, String}["gamma" => string(round(gamma, sigdigits=16))]
+            elseif mode == "triangle"
+                a = parse(Float64, kv["a"])
+                b = parse(Float64, kv["b"])
+                unit = parse_unit(kv["unit"])
+                gamma = to_radians(parse(Float64, kv["gamma"]), unit)
+                c = sqrt(a * a + b * b - 2.0 * a * b * cos(gamma))
+                area = 0.5 * a * b * sin(gamma)
+                title = "Triangle Summary"
+                rows = Pair{String, String}[
+                    "side_c" => string(round(c, sigdigits=16)),
+                    "area" => string(round(area, sigdigits=16))
+                ]
+            elseif mode == "wave"
+                A = parse(Float64, kv["A"])
+                B = parse(Float64, kv["B"])
+                unit = parse_unit(kv["unit"])
+                C = to_radians(parse(Float64, kv["C"]), unit)
+                D = parse(Float64, kv["D"])
+                x = parse(Float64, kv["x"])
+                y = A * sin(B * x + C) + D
+                title = "Trig Wave Equation"
+                rows = Pair{String, String}["y" => string(round(y, sigdigits=16))]
+            elseif mode == "identity"
+                unit = parse_unit(kv["unit"])
+                theta = to_radians(parse(Float64, kv["theta"]), unit)
+                lhs = sin(theta)^2 + cos(theta)^2
+                title = "Trig Identity Check"
+                rows = Pair{String, String}["lhs" => string(round(lhs, sigdigits=16)), "absolute_error" => string(abs(lhs - 1.0))]
+            else
+                error("Unknown mode: " * mode)
+            end
+
+            elapsed_ms = (time_ns() - started) / 1_000_000
+            print_result(title, rows, elapsed_ms)
+            ok_count += 1
+        catch err
+            println("Batch error on line $(idx): " * string(err))
+        end
+    end
+
+    println("\nBatch complete. Successful rows: $(ok_count)")
 end
 
 function print_input_guide(title::String, items::Vector{String})
@@ -133,7 +317,9 @@ function menu()
     println("   -> Example: evaluate signal/wave value at x")
     println("7. Trig identity checker: sin^2 + cos^2")
     println("   -> Example: numerical precision check at large angle")
-    println("8. Exit")
+    println("8. Batch mode from file")
+    println("   -> Execute many trigonometry tasks from a text file")
+    println("9. Exit")
 end
 
 function run_basic_trig()
@@ -356,7 +542,7 @@ function main()
     while true
         try
             menu()
-            choice = read_int("Your choice"; format="1..8", example="1", minv=1, maxv=8)
+            choice = read_int("Your choice"; format="1..9", example="1", minv=1, maxv=9)
             if choice == 1
                 run_basic_trig()
             elseif choice == 2
@@ -371,6 +557,8 @@ function main()
                 run_trig_equation_wave()
             elseif choice == 7
                 run_identity_checker()
+            elseif choice == 8
+                run_batch_mode()
             else
                 println("\nGoodbye from Trigonometry Studio.")
                 return
@@ -381,4 +569,6 @@ function main()
     end
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end
