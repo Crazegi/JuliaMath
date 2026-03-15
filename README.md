@@ -157,6 +157,7 @@ File: `trigonometry_studio.jl`
 - Law of Cosines (solve angle)
 - Triangle summary (side, area, perimeter)
 - Trig equation evaluator: $y = A\sin(Bx + C) + D$
+- Trig equation plotting mode (ASCII graph + CSV samples)
 - Identity checker: $\sin^2(x) + \cos^2(x) = 1$
 
 ### UX Features

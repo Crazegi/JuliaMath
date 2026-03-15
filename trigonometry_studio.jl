@@ -115,6 +115,68 @@ function export_rows(app_name::String, title::String, rows::Vector{Pair{String, 
     println("Exported: " * csv_path)
 end
 
+function export_xy_csv(app_name::String, title::String, xs::Vector{Float64}, ys::Vector{Float64})
+    base_dir = joinpath(@__DIR__, "exports", app_name, "plots")
+    mkpath(base_dir)
+
+    stem = sanitize_filename(title) * "_samples_" * timestamp_tag()
+    csv_path = joinpath(base_dir, stem * ".csv")
+
+    open(csv_path, "w") do io
+        println(io, "x,y")
+        for i in eachindex(xs)
+            println(io, string(xs[i]) * "," * string(ys[i]))
+        end
+    end
+
+    println("Exported: " * csv_path)
+end
+
+function print_ascii_plot(xs::Vector{Float64}, ys::Vector{Float64}; width::Int=72, height::Int=20)
+    n = length(xs)
+    n >= 2 || error("Need at least 2 points to draw plot")
+
+    min_x = minimum(xs)
+    max_x = maximum(xs)
+    min_y = minimum(ys)
+    max_y = maximum(ys)
+    if min_y == max_y
+        min_y -= 1.0
+        max_y += 1.0
+    end
+
+    grid = [fill(' ', width) for _ in 1:height]
+
+    if min_y <= 0.0 <= max_y
+        axis_row = Int(clamp(round((max_y - 0.0) / (max_y - min_y) * (height - 1)) + 1, 1, height))
+        for c in 1:width
+            grid[axis_row][c] = '-'
+        end
+    end
+
+    if min_x <= 0.0 <= max_x
+        axis_col = Int(clamp(round((0.0 - min_x) / (max_x - min_x) * (width - 1)) + 1, 1, width))
+        for r in 1:height
+            grid[r][axis_col] = '|'
+        end
+    end
+
+    for i in eachindex(xs)
+        c = Int(clamp(round((xs[i] - min_x) / (max_x - min_x) * (width - 1)) + 1, 1, width))
+        r = Int(clamp(round((max_y - ys[i]) / (max_y - min_y) * (height - 1)) + 1, 1, height))
+        grid[r][c] = '*'
+    end
+
+    println("\nASCII PLOT")
+    line("-")
+    for r in 1:height
+        println(join(grid[r]))
+    end
+    line("-")
+    println("x range: [" * string(round(min_x, sigdigits=8)) * ", " * string(round(max_x, sigdigits=8)) * "]")
+    println("y range: [" * string(round(min_y, sigdigits=8)) * ", " * string(round(max_y, sigdigits=8)) * "]")
+end
+
 function print_result(title::String, rows::Vector{Pair{String, String}}, elapsed_ms::Float64)
     line("-")
     println("RESULT | " * title)
@@ -161,6 +223,7 @@ function run_batch_mode()
     println("law_angle|a=7;b=9;c=6;unit=deg")
     println("triangle|a=12;b=15;gamma=33;unit=deg")
     println("wave|A=2.5;B=1.8;C=30;D=-0.7;x=1.2;unit=deg")
+    println("plot|A=2.5;B=1.8;C=30;D=-0.7;x_min=-10;x_max=10;points=600;unit=deg")
     println("identity|theta=12345.678;unit=deg")
 
     path = prompt_line("Batch file path: ")
@@ -254,6 +317,26 @@ function run_batch_mode()
                 lhs = sin(theta)^2 + cos(theta)^2
                 title = "Trig Identity Check"
                 rows = Pair{String, String}["lhs" => string(round(lhs, sigdigits=16)), "absolute_error" => string(abs(lhs - 1.0))]
+            elseif mode == "plot"
+                A = parse(Float64, kv["A"])
+                B = parse(Float64, kv["B"])
+                unit = parse_unit(kv["unit"])
+                C = to_radians(parse(Float64, kv["C"]), unit)
+                D = parse(Float64, kv["D"])
+                x_min = parse(Float64, kv["x_min"])
+                x_max = parse(Float64, kv["x_max"])
+                points = parse(Int, kv["points"])
+                xs = collect(range(x_min, x_max; length=points))
+                ys = [A * sin(B * x + C) + D for x in xs]
+                title = "Trig Equation Plot"
+                rows = Pair{String, String}[
+                    "points" => string(points),
+                    "x_min" => string(x_min),
+                    "x_max" => string(x_max),
+                    "y_min" => string(round(minimum(ys), sigdigits=16)),
+                    "y_max" => string(round(maximum(ys), sigdigits=16))
+                ]
+                export_xy_csv("trigonometry_studio", "trig_equation_plot_batch", xs, ys)
             else
                 error("Unknown mode: " * mode)
             end
@@ -317,9 +400,11 @@ function menu()
     println("   -> Example: evaluate signal/wave value at x")
     println("7. Trig identity checker: sin^2 + cos^2")
     println("   -> Example: numerical precision check at large angle")
-    println("8. Batch mode from file")
+    println("8. Plot trig equation on ASCII graph + CSV")
+    println("   -> Example: visualize y = A*sin(Bx+C)+D over chosen range")
+    println("9. Batch mode from file")
     println("   -> Execute many trigonometry tasks from a text file")
-    println("9. Exit")
+    println("10. Exit")
 end
 
 function run_basic_trig()
@@ -511,6 +596,50 @@ function run_trig_equation_wave()
     print_result("Trig Wave Equation", rows, elapsed_ms)
 end
 
+function run_trig_equation_plot()
+    println("\nMode: Plot trig equation y = A*sin(Bx + C) + D")
+    println("This mode visualizes the function and exports full sampled points.")
+    print_input_guide("Plot trig equation", [
+        "A = amplitude, B = frequency scale, C = phase shift, D = vertical shift.",
+        "x_min/x_max define the horizontal plotting range.",
+        "points controls graph smoothness (more points -> smoother curve)."
+    ])
+
+    A = read_float("A (amplitude)"; format="real", example="2.5")
+    B = read_float("B (frequency scale)"; format="real", example="1.8")
+    unit = choose_angle_unit()
+    C_in = read_float("C (phase shift)"; format=unit == :deg ? "degrees" : "radians", example=unit == :deg ? "30" : "0.52")
+    D = read_float("D (vertical shift)"; format="real", example="-0.7")
+    x_min = read_float("x_min"; format="real", example="-10")
+    x_max = read_float("x_max"; format="real and > x_min", example="10")
+    x_max > x_min || error("x_max must be greater than x_min")
+    points = read_int("points"; format="integer 50..5000", example="600", minv=50, maxv=5000)
+
+    C = to_radians(C_in, unit)
+    println("Input summary: A=$(A), B=$(B), C=$(C_in) $(unit == :deg ? "deg" : "rad"), D=$(D), x in [$(x_min), $(x_max)], points=$(points)")
+
+    started = time_ns()
+    xs = collect(range(x_min, x_max; length=points))
+    ys = [A * sin(B * x + C) + D for x in xs]
+    elapsed_ms = (time_ns() - started) / 1_000_000
+
+    y_min = minimum(ys)
+    y_max = maximum(ys)
+    y_mean = sum(ys) / length(ys)
+    rows = Pair{String, String}[
+        "equation" => "y = A*sin(Bx + C) + D",
+        "points" => string(points),
+        "x_min" => string(x_min),
+        "x_max" => string(x_max),
+        "y_min" => string(round(y_min, sigdigits=16)),
+        "y_max" => string(round(y_max, sigdigits=16)),
+        "y_mean" => string(round(y_mean, sigdigits=16))
+    ]
+    print_result("Trig Equation Plot", rows, elapsed_ms)
+    print_ascii_plot(xs, ys)
+    export_xy_csv("trigonometry_studio", "trig_equation_plot", xs, ys)
+end
+
 function run_identity_checker()
     println("\nMode: Identity checker")
     println("Identity: sin(theta)^2 + cos(theta)^2 = 1")
@@ -542,7 +671,7 @@ function main()
     while true
         try
             menu()
-            choice = read_int("Your choice"; format="1..9", example="1", minv=1, maxv=9)
+            choice = read_int("Your choice"; format="1..10", example="1", minv=1, maxv=10)
             if choice == 1
                 run_basic_trig()
             elseif choice == 2
@@ -558,6 +687,8 @@ function main()
             elseif choice == 7
                 run_identity_checker()
             elseif choice == 8
+                run_trig_equation_plot()
+            elseif choice == 9
                 run_batch_mode()
             else
                 println("\nGoodbye from Trigonometry Studio.")
