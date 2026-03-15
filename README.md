@@ -1,66 +1,156 @@
-# Math Theory Lab (Julia CLI)
+# Julia Math Studio
 
-A non-browser, performance-focused command-line app in an unusual language (Julia).
+High-performance command-line math toolkit in Julia, focused on clear UX and serious computation.
 
-## What it includes
+![Language](https://img.shields.io/badge/language-Julia-9558B2.svg)
+![Apps](https://img.shields.io/badge/apps-3-blue.svg)
+![Interface](https://img.shields.io/badge/interface-CLI-0A7B83.svg)
+![Focus](https://img.shields.io/badge/focus-performance-orange.svg)
 
-- Modular exponentiation with BigInt
+## Table of Contents
+
+- [Overview](#overview)
+- [Quick Start](#quick-start)
+- [Applications](#applications)
+- [Math Theory Lab](#math-theory-lab)
+- [Probability Studio](#probability-studio)
+- [Trigonometry Studio](#trigonometry-studio)
+- [Performance Design](#performance-design)
+- [Repository Structure](#repository-structure)
+- [Roadmap](#roadmap)
+
+## Overview
+
+This repository contains three polished CLI applications:
+
+1. `math_theory_lab.jl` for advanced math theories and heavy computations
+2. `probability_studio.jl` for practical probability calculations
+3. `trigonometry_studio.jl` for trigonometric workflows and Law of Cosines
+
+Each app includes:
+
+- Detailed input guidance
+- User-friendly prompts and summaries
+- Structured result panels
+- Per-calculation compute-time reporting
+
+## Quick Start
+
+### 1. Install Julia
+
+- Recommended: Julia `1.10+`
+- Verify:
+
+```powershell
+julia --version
+```
+
+### 2. Run an App
+
+From this project directory:
+
+```powershell
+julia math_theory_lab.jl
+julia probability_studio.jl
+julia trigonometry_studio.jl
+```
+
+## Applications
+
+| App | Purpose | Main Domains |
+|---|---|---|
+| `math_theory_lab.jl` | Advanced, hard-to-do-in-head calculations | Number theory, combinatorics, finance, chaos, approximations |
+| `probability_studio.jl` | Event-likelihood and decision calculations | Binomial, Poisson, Bayes, geometric |
+| `trigonometry_studio.jl` | Angle/triangle and trig equation tools | sin/cos/tan/cot, inverse trig, cosine law |
+
+## Math Theory Lab
+
+File: `math_theory_lab.jl`
+
+### Included Models
+
+- Modular exponentiation with `BigInt`
 - Fast doubling Fibonacci
-- Binomial coefficient C(n, k)
+- Binomial coefficient $C(n, k)$
 - Catalan numbers
-- Integer partition p(n)
-- Deterministic Miller-Rabin for 64-bit numbers
+- Integer partition $p(n)$
+- Deterministic Miller-Rabin (64-bit)
 - Chinese Remainder Theorem solver
-- Black-Scholes call option pricing
-- Riemann zeta approximation via Dirichlet-eta
-- Newton-Raphson cubic root solver
+- Black-Scholes call option model
+- Riemann zeta approximation (Dirichlet-eta)
+- Newton-Raphson cubic root
 - Logistic map Lyapunov exponent
+- Euler totient $\phi(n)$
+- Lucas-Lehmer Mersenne test
+- Pell equation fundamental solution
+- Stirling approximation error
 
-## Run
+### UX Features
 
-1. Install Julia (1.10+ recommended).
-2. Open a terminal in this folder.
-3. Run:
+- Detailed field-by-field input prompts
+- Theory descriptions directly in menu
+- High-visibility result blocks
+- Demo benchmark mode for all theories
 
-   julia math_theory_lab.jl
+## Probability Studio
 
-## Probability Program (Second Mode)
+File: `probability_studio.jl`
 
-A separate polished probability-focused CLI is available in `probability_studio.jl`.
+### Included Models
 
-Run it with:
-
-   julia probability_studio.jl
-
-It includes:
-
-- At least one success in n trials
+- At least one success in $n$ independent trials
 - Binomial exact and cumulative probabilities
 - Poisson exact-event probability
 - Bayes posterior probability
 - Geometric first-success probability
 
-## Trigonometry Program
+### UX Features
 
-A dedicated trigonometry CLI is available in `trigonometry_studio.jl`.
+- Input guides explain meaning of each variable
+- Real-world scenario hints in menu
+- Input summary shown before each compute
+- Structured output card with percentages and timing
 
-Run it with:
+## Trigonometry Studio
 
-   julia trigonometry_studio.jl
+File: `trigonometry_studio.jl`
 
-It includes:
+### Included Modes
 
-- Basic sin, cos, tan, cot for one angle
-- Inverse trig values (arcsin, arccos, arctan)
-- Law of Cosines (find side)
-- Law of Cosines (find angle)
-- Triangle summary from two sides + included angle
-- Trig wave equation y = A*sin(Bx + C) + D
-- Trig identity checker sin^2 + cos^2 = 1
+- Basic trig for one angle: sin, cos, tan, cot
+- Inverse trig: arcsin, arccos, arctan
+- Law of Cosines (solve side)
+- Law of Cosines (solve angle)
+- Triangle summary (side, area, perimeter)
+- Trig equation evaluator: $y = A\sin(Bx + C) + D$
+- Identity checker: $\sin^2(x) + \cos^2(x) = 1$
 
-## Notes on performance
+### UX Features
 
-- Uses BigInt for exact huge integer computations.
-- Uses O(log n) methods where possible (modular power, Fibonacci).
-- Uses in-place loops and bounds-safe optimizations for heavy iterations.
-- Shows compute time for each calculation.
+- Degree/radian unit selection
+- Explanatory prompts and examples
+- Geometry/trig validity checks
+- Clean, readable result presentation
+
+## Performance Design
+
+- Uses `BigInt` for exact large-number arithmetic
+- Employs fast algorithms where applicable (for example $O(\log n)$)
+- Uses loop-oriented numeric routines for CLI efficiency
+- Reports compute time for every result
+
+## Repository Structure
+
+```text
+.
+├── README.md
+├── math_theory_lab.jl
+├── probability_studio.jl
+└── trigonometry_studio.jl
+```
+
+## Roadmap
+
+1. Export results to `.txt`/`.csv`
+2. Add batch input mode from files
+3. Add test suite for all core formulas
